@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node screenshot.mjs http://localhost:3000 events)",
+      "Bash(command -v node)",
+      "Bash(/usr/local/bin/node --version)",
+      "Read(//usr/local/**)",
+      "Bash(echo \"PATH=$PATH\")",
+      "Bash(cmd /c \"where node\")",
+      "Bash(cmd /c \"where node 2>&1 && echo found || echo not found\")",
+      "Bash(cmd /c \"dir \"\"C:\\\\Program Files\"\" 2>&1\")",
+      "Bash(cmd /c \"dir \"\"C:\\\\Program Files \\(x86\\)\"\" 2>&1\")",
+      "Bash(\"/c/Program Files/Adobe/Adobe Creative Cloud Experience/libs/node.exe\" --version)",
+      "Bash(\"/c/Program Files/Adobe/Adobe Creative Cloud Experience/libs/node.exe\" screenshot.mjs http://localhost:3000 events)",
+      "Bash(\"/c/Program Files/Adobe/Adobe Creative Cloud Experience/libs/node.exe\" -e \"const h=require\\(''http''\\);h.get\\(''http://localhost:3000'',\\(r\\)=>{let d='''';r.on\\(''data'',c=>d+=c\\);r.on\\(''end'',\\(\\)=>console.log\\(''Server OK, status:'',r.statusCode\\)\\)}\\).on\\(''error'',e=>console.log\\(''Error:'',e.message\\)\\)\")",
+      "Bash(\"/c/Program Files/Adobe/Adobe Creative Cloud Experience/libs/node.exe\" -e \"console.log\\(process.execPath\\)\")",
+      "Read(//c/Program Files/Adobe/Adobe Creative Cloud Experience/libs//**)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/nodejs:/usr/bin:/bin\")",
+      "Bash(node -e \":*)"
+    ]
+  }
+}

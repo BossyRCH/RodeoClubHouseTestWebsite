@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portfolio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,700;0,900;1,900&family=Archivo+Narrow:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-outer: #c8c5be;
+      --bg-card: #f4f1ec;
+      --text-primary: #0d0d0d;
+      --text-muted: #7a7772;
+      --accent: #0000EE;
+      --font-mono: 'Archivo Narrow', sans-serif;
+      --font-display: 'Archivo', sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      background-color: var(--bg-outer);
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      min-height: 100vh;
+    }
+
+    /* ── Outer chrome labels ── */
+    .outer-top {
+      text-align: center;
+      margin-bottom: 28px;
+      animation: fadeUp 0.6s ease both;
+    }
+    .outer-top .name {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+    }
+    .outer-top .title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* ── Main card ── */
+    .card {
+      background: var(--bg-card);
+      width: 100%;
+      max-width: 1000px;
+      position: relative;
+      overflow: hidden;
+      animation: fadeUp 0.7s 0.1s ease both;
+    }
+
+    /* ── Top nav bar ── */
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 28px;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+    }
+    .nav span {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .nav span.active {
+      color: var(--text-primary);
+      font-weight: 700;
+    }
+
+    /* ── Hero section ── */
+    .hero {
+      padding: 28px 28px 0;
+      position: relative;
+    }
+
+    .tag-line {
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .hero-headline {
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: clamp(52px, 9vw, 108px);
+      line-height: 0.93;
+      letter-spacing: -0.03em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+      position: relative;
+    }
+
+    .hero-headline em {
+      font-style: italic;
+      font-family: var(--font-display);
+      font-weight: 900;
+    }
+
+    /* Floating label inside hero */
+    .float-label {
+      position: absolute;
+      right: 28px;
+      top: 56%;
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-align: right;
+      line-height: 1.6;
+    }
+    .float-label::before {
+      content: '[ ';
+    }
+    .float-label::after {
+      content: ' ]';
+    }
+
+    /* ── Bottom panel ── */
+    .bottom {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      align-items: end;
+      padding: 32px 28px 0;
+      gap: 24px;
+      position: relative;
+    }
+
+    /* Bio text */
+    .bio {
+      grid-column: 2;
+      position: relative;
+    }
+    .bio-inner {
+      border: 1px solid rgba(0,0,0,0.15);
+      padding: 16px;
+      font-size: 10.5px;
+      line-height: 1.75;
+      color: var(--text-muted);
+    }
+    .bio-inner::before,
+    .bio-inner::after {
+      content: '';
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-color: var(--text-muted);
+      border-style: solid;
+    }
+    .bio-inner::before {
+      top: -1px; left: -1px;
+      border-width: 1px 0 0 1px;
+    }
+    .bio-inner::after {
+      bottom: -1px; right: -1px;
+      border-width: 0 1px 1px 0;
+    }
+    .bio p + p {
+      margin-top: 10px;
+    }
+
+    /* Portrait image placeholder */
+    .portrait {
+      grid-column: 3;
+      justify-self: end;
+      width: 160px;
+      height: 200px;
+      background: linear-gradient(160deg, #b84a22 0%, #e8a87c 50%, #2a1a10 100%);
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .portrait::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.15);
+    }
+
+    /* ── Bottom nav bar ── */
+    .bottom-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 28px;
+      margin-top: 20px;
+      border-top: 1px solid rgba(0,0,0,0.08);
+    }
+    .bottom-nav a {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .bottom-nav a:hover {
+      color: var(--text-primary);
+    }
+    .bottom-nav a.active {
+      color: var(--text-primary);
+      font-weight: 700;
+    }
+
+    /* ── Outer bottom label ── */
+    .outer-bottom {
+      margin-top: 28px;
+      text-align: center;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      animation: fadeUp 0.7s 0.2s ease both;
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Hover interaction on headline */
+    .hero-headline {
+      cursor: default;
+      transition: letter-spacing 0.4s ease;
+    }
+    .hero-headline:hover {
+      letter-spacing: 0.01em;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Outer top chrome -->
+  <div class="outer-top">
+    <div class="name">Your Name</div>
+    <div class="title">Creative Director, Photographer.</div>
+  </div>
+
+  <!-- Main card -->
+  <div class="card">
+
+    <!-- Top nav -->
+    <nav class="nav">
+      <span class="active">[ Your Name ]</span>
+      <span>[ Creative Director, Photographer ]</span>
+      <span>[ City, Country ]</span>
+    </nav>
+
+    <!-- Hero -->
+    <div class="hero">
+      <div class="tag-line">[ Art, Fashion, Music ]</div>
+
+      <div class="hero-headline">
+        A Creative Director /<br>
+        Photographer<br>
+        Born <em>&amp;</em> Raised<br>
+        On The South Side<br>
+        Of Chicago.
+      </div>
+
+      <div class="float-label">Creative<br>Photography</div>
+    </div>
+
+    <!-- Bottom grid: bio + portrait -->
+    <div class="bottom">
+      <div><!-- spacer --></div>
+
+      <div class="bio">
+        <div class="bio-inner">
+          <p>I seek to find the connection between humanity and cultural nuances within art, fashion, and music in an effort to maintain authenticity in my work.</p>
+          <p>I spent a large part of my career at Nike as a senior creative director, focusing on how sport fuels human potential. I currently reside in Brooklyn, NY.</p>
+        </div>
+      </div>
+
+      <div class="portrait"></div>
+    </div>
+
+    <!-- Bottom nav -->
+    <nav class="bottom-nav">
+      <a href="#">[ Back ]</a>
+      <a href="#" class="active">[ .About ]</a>
+      <span></span>
+      <a href="#">[ Works ]</a>
+    </nav>
+
+  </div>
+
+  <!-- Outer bottom chrome -->
+  <div class="outer-bottom">[ Brooklyn, NY ]</div>
+
+</body>
+</html>

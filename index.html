@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SPOTD — Find Your Scene. Make Moves.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,500;0,700;1,400;1,500&family=Archivo+Narrow:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    ::selection { background: #0000EE; color: #fff; }
+
+    :root {
+      --bg:       #f4f1ec;
+      --bg-outer: #c8c5be;
+      --ink:      #0d0d0d;
+      --mid:      #4a4744;
+      --dim:      #7a7772;
+      --rule:     #dedad4;
+      --hover:    #edeae4;
+      --accent:   #0000EE;
+      --font:     'Archivo Narrow', sans-serif;
+      --font-display: 'Archivo', sans-serif;
+    }
+
+    html { -webkit-text-size-adjust: 100%; }
+    body { font-family: var(--font); font-size: 14px; line-height: 1.6; color: var(--ink); background: var(--bg-outer); text-rendering: optimizeLegibility; overflow-x: hidden; }
+    a { color: inherit; text-decoration: none; }
+    button { font-family: var(--font); cursor: pointer; }
+
+    /* ─── RODEO STRIP ─────────────────────────────────── */
+    .rodeo-strip {
+      background: transparent; color: var(--mid);
+      height: 40px; display: flex; align-items: center; justify-content: center;
+      gap: 10px; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; padding: 0 72px;
+      font-family: var(--font);
+    }
+    .rodeo-strip a { color: var(--ink); font-weight: 700; }
+    .rodeo-strip a:hover { color: var(--accent); }
+    .rodeo-strip .sep { opacity: 0.3; }
+
+    /* ─── NAV ─────────────────────────────────────────── */
+    nav.main-nav {
+      position: sticky; top: 0; z-index: 200;
+      background: var(--bg); border-bottom: 1px solid var(--rule);
+      height: 72px; display: flex; align-items: center;
+      justify-content: space-between; padding: 0 72px;
+    }
+    .nav-logo { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; font-family: var(--font); }
+    .nav-tabs { list-style: none; display: flex; gap: 36px; }
+    .nav-tabs a { font-size: 10px; font-weight: 700; color: var(--mid); letter-spacing: 0.14em; text-transform: uppercase; transition: color 0.15s; padding-bottom: 3px; }
+    .nav-tabs a::before { content: '[ '; }
+    .nav-tabs a::after { content: ' ]'; }
+    .nav-tabs a:hover { color: var(--ink); }
+    .nav-tabs a.active { color: var(--ink); border-bottom: 1.5px solid var(--ink); }
+    .nav-actions { display: flex; align-items: center; gap: 14px; }
+    .nav-btn { font-size: 10px; font-weight: 700; padding: 9px 20px; border-radius: 0; border: 1px solid var(--rule); letter-spacing: 0.12em; text-transform: uppercase; transition: all 0.15s; font-family: var(--font); }
+    .nav-btn.secondary { background: transparent; color: var(--mid); }
+    .nav-btn.secondary:hover { color: var(--ink); border-color: var(--ink); }
+    .nav-btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .nav-btn.primary:hover { opacity: 0.8; }
+
+    /* ─── CARD WRAPPER ────────────────────────────────── */
+    #events-page { background: var(--bg); }
+
+    /* ─── HERO ─────────────────────────────────────────── */
+    .s-hero {
+      position: relative; min-height: calc(100vh - 148px);
+      padding: 56px 72px 96px; display: flex;
+      flex-direction: column; justify-content: space-between; overflow: hidden;
+      border-bottom: 1px solid var(--rule);
+    }
+    .hero-meta-row {
+      position: relative; z-index: 2;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .location-tag { display: inline-flex; align-items: center; gap: 10px; cursor: default; user-select: none; }
+    .location-pulse { position: relative; width: 8px; height: 8px; flex-shrink: 0; }
+    .location-pulse-ring { position: absolute; inset: 0; border-radius: 50%; background: var(--accent); opacity: 0.5; animation: loc-ping 1.8s ease-out infinite; }
+    .location-pulse-dot { position: absolute; inset: 1px; border-radius: 50%; background: var(--accent); }
+    @keyframes loc-ping { 0% { transform: scale(1); opacity: 0.5; } 70% { transform: scale(2.5); opacity: 0; } 100% { transform: scale(2.5); opacity: 0; } }
+    .location-text-wrap { position: relative; height: 18px; overflow: hidden; min-width: 140px; }
+    .loc-city, .loc-time { position: absolute; top: 0; left: 0; font-size: 12px; font-weight: 500; color: var(--ink); letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; transition: transform 0.35s cubic-bezier(0.23,1,0.32,1), opacity 0.25s; }
+    .loc-time { transform: translateY(100%); opacity: 0; }
+    .location-tag:hover .loc-city { transform: translateY(-100%); opacity: 0; }
+    .location-tag:hover .loc-time { transform: translateY(0); opacity: 1; }
+    .hero-event-count { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid); }
+
+    .hero-center { position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 80px 0 60px; }
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: clamp(64px, 9.5vw, 140px); font-weight: 500;
+      letter-spacing: -0.03em; line-height: 0.93; color: var(--ink);
+      text-transform: uppercase;
+      margin-bottom: 0;
+    }
+    .hero-title em { font-style: italic; color: var(--ink); font-weight: 400; }
+
+    .hero-foot { position: relative; z-index: 2; display: flex; align-items: flex-end; justify-content: space-between; gap: 48px; }
+    .hero-sub { font-size: 11px; line-height: 1.75; color: var(--mid); max-width: 340px; letter-spacing: 0.06em; text-transform: uppercase; }
+    .hero-ctas { display: flex; gap: 12px; flex-shrink: 0; }
+    .hero-btn-primary { display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px; background: var(--ink); color: #fff; border: 1px solid var(--ink); border-radius: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; transition: opacity 0.2s; font-family: var(--font); }
+    .hero-btn-primary:hover { opacity: 0.8; }
+    .hero-btn-secondary { display: inline-flex; align-items: center; gap: 6px; padding: 14px 24px; background: transparent; color: var(--mid); border: 1px solid var(--rule); border-radius: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; transition: border-color 0.2s, color 0.2s; font-family: var(--font); }
+    .hero-btn-secondary:hover { border-color: var(--ink); color: var(--ink); }
+
+    /* ─── EVENTS SECTION ──────────────────────────────── */
+    .s-events { padding: 0 72px 160px; }
+
+    .events-controls {
+      display: flex; align-items: center; gap: 24px;
+      padding: 40px 0; border-bottom: 1px solid var(--rule);
+    }
+    .search-input-wrap { flex: 1; position: relative; }
+    .search-input-wrap svg { position: absolute; left: 0; top: 50%; transform: translateY(-50%); color: var(--dim); }
+    .search-input { width: 100%; background: none; border: none; outline: none; font-family: var(--font); font-size: 14px; font-weight: 400; color: var(--ink); padding-left: 22px; letter-spacing: -0.01em; }
+    .search-input::placeholder { color: var(--dim); }
+    .city-select { background: none; border: none; outline: none; font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--mid); cursor: pointer; letter-spacing: -0.01em; appearance: none; -webkit-appearance: none; }
+    .city-select:focus { color: var(--ink); }
+    .filter-toggle-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: none; border: 1px solid var(--rule); border-radius: 0; font-size: 10px; font-weight: 700; color: var(--mid); letter-spacing: 0.1em; text-transform: uppercase; transition: border-color 0.15s, color 0.15s; }
+    .filter-toggle-btn:hover, .filter-toggle-btn.active { border-color: var(--ink); color: var(--ink); }
+    .filter-active-badge { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 9px; font-weight: 700; opacity: 0; transition: opacity 0.15s; }
+    .filter-active-badge.visible { opacity: 1; }
+
+    /* Filter panel */
+    .events-filter-panel { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+    .events-filter-panel.open { max-height: 420px; border-bottom: 1px solid var(--rule); }
+    .filter-panel-body { display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px; padding: 40px 0; }
+    .filter-section-head { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); margin-bottom: 20px; }
+    .filter-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; margin: 0 6px 8px 0; background: none; border: 1px solid var(--rule); border-radius: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mid); transition: all 0.15s; }
+    .filter-chip:hover { border-color: var(--ink); color: var(--ink); }
+    .filter-chip.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .filter-chip-check { width: 10px; height: 10px; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
+    .filter-chip.active .filter-chip-check { opacity: 1; }
+    .filter-clear-btn { background: none; border: none; font-size: 12px; font-weight: 600; color: var(--mid); padding: 0; margin-top: 12px; display: block; text-decoration: underline; text-underline-offset: 3px; }
+    .filter-clear-btn:hover { color: var(--ink); }
+
+    /* Filter pills row */
+    .filter-row { display: flex; align-items: center; padding: 0; border-bottom: 1px solid var(--rule); overflow-x: auto; scrollbar-width: none; }
+    .filter-row::-webkit-scrollbar { display: none; }
+    .pill { padding: 20px 0; margin-right: 36px; background: none; border: none; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); white-space: nowrap; transition: color 0.15s; flex-shrink: 0; font-family: var(--font); }
+    .pill:hover { color: var(--mid); }
+    .pill.active { color: var(--ink); border-bottom: 2px solid var(--ink); }
+    .results-count { margin-left: auto; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim); white-space: nowrap; flex-shrink: 0; }
+
+    /* Event group labels */
+    .event-group-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); padding-top: 64px; margin-bottom: -8px; }
+
+    /* Event rows */
+    .event-row {
+      display: grid; grid-template-columns: 80px 1fr auto;
+      gap: 56px; padding: 52px 0;
+      border-bottom: 1px solid var(--rule);
+      cursor: pointer; align-items: start;
+    }
+    .event-row:hover { background: var(--hover); padding-left: 24px; padding-right: 24px; margin: 0 -24px; }
+    .event-date-col { display: flex; flex-direction: column; padding-top: 4px; }
+    .event-day-num { font-family: var(--font-display); font-size: 48px; font-weight: 400; letter-spacing: -0.04em; line-height: 1; color: var(--ink); }
+    .event-month { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); margin-top: 6px; }
+    .event-dow { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+    .event-body { display: flex; flex-direction: column; gap: 8px; }
+    .event-cat { display: flex; align-items: center; gap: 8px; }
+    .genre-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 9px; border-radius: 100px; background: var(--hover); color: var(--mid); border: 1px solid var(--rule); }
+    .genre-badge.gm { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .event-title { font-family: var(--font-display); font-size: 22px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.15; color: var(--ink); }
+    .event-venue { font-size: 13px; color: var(--mid); letter-spacing: -0.01em; }
+    .event-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+    .badge { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 8px; border-radius: 100px; }
+    .badge-featured { background: var(--accent); color: #fff; }
+    .badge-free { background: #e6f4ed; color: #1a7a3c; }
+    .event-right { display: flex; flex-direction: column; align-items: flex-end; gap: 16px; padding-top: 4px; min-width: 80px; }
+    .event-price { font-size: 16px; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
+    .save-btn { background: none; border: none; color: var(--dim); padding: 4px; display: flex; transition: color 0.15s; }
+    .save-btn:hover { color: var(--accent); }
+    .save-btn.saved { color: var(--accent); }
+    .row-chevron { width: 14px; height: 14px; color: var(--dim); transition: transform 0.25s cubic-bezier(0.23,1,0.32,1); margin-top: 6px; }
+    .event-row.expanded .row-chevron { transform: rotate(180deg); }
+
+    /* Expand panel */
+    .event-row-expand { max-height: 0; overflow: hidden; transition: max-height 0.35s cubic-bezier(0.23,1,0.32,1); }
+    .event-row-expand.open { border-bottom: 1px solid var(--rule); }
+    .expand-inner { padding: 36px 0 52px 136px; }
+    .expand-about { font-size: 14px; line-height: 1.78; color: var(--mid); max-width: 560px; margin-bottom: 32px; }
+    .expand-meta-row { display: flex; gap: 48px; margin-bottom: 32px; }
+    .expand-meta-label { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+    .expand-meta-val { font-size: 14px; font-weight: 500; color: var(--ink); letter-spacing: -0.01em; }
+    .expand-actions { display: flex; gap: 12px; }
+    .expand-cta { padding: 10px 24px; background: var(--ink); color: #fff; border: 1px solid var(--ink); border-radius: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; transition: opacity 0.15s; font-family: var(--font); }
+    .expand-cta:hover { opacity: 0.8; }
+    .expand-cta.sec { background: none; color: var(--mid); border: 1px solid var(--rule); }
+    .expand-cta.sec:hover { border-color: var(--ink); color: var(--ink); }
+    .empty-state { display: none; padding: 80px 0; color: var(--dim); font-size: 13px; }
+    .load-more { padding: 64px 0 0; text-align: center; }
+    .load-more button { padding: 12px 32px; background: none; border: 1px solid var(--rule); border-radius: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mid); transition: all 0.15s; font-family: var(--font); }
+    .load-more button:hover { border-color: var(--ink); color: var(--ink); }
+
+    /* ─── PEOPLE SECTION ──────────────────────────────── */
+    .s-people { padding: 120px 72px 160px; border-top: 1px solid var(--rule); }
+    .s-people-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 64px; }
+    .s-people-header h2 { font-family: var(--font-display); font-size: clamp(40px, 5vw, 72px); font-weight: 500; letter-spacing: -0.03em; line-height: 1; text-transform: uppercase; }
+    .people-tabs { display: flex; gap: 32px; }
+    .people-tab { font-size: 10px; font-weight: 700; color: var(--dim); cursor: pointer; padding-bottom: 2px; letter-spacing: 0.12em; text-transform: uppercase; transition: color 0.15s; }
+    .people-tab::before { content: '[ '; }
+    .people-tab::after { content: ' ]'; }
+    .people-tab:hover { color: var(--mid); }
+    .people-tab.active { color: var(--ink); border-bottom: 1.5px solid var(--ink); }
+    .creator-row { display: grid; grid-template-columns: 56px 1fr auto; gap: 32px; padding: 40px 0; border-bottom: 1px solid var(--rule); align-items: center; }
+    .creator-avatar { width: 56px; height: 56px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; letter-spacing: 0.02em; }
+    .creator-name { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+    .creator-role { font-size: 13px; color: var(--mid); margin-top: 3px; letter-spacing: -0.01em; }
+    .creator-tags { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+    .tag { font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 10px; border: 1px solid var(--rule); border-radius: 100px; color: var(--mid); }
+    .creator-city { font-size: 11px; color: var(--dim); margin-top: 6px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
+    .btn-collab { padding: 9px 20px; background: none; border: 1px solid var(--rule); border-radius: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mid); transition: all 0.15s; font-family: var(--font); }
+    .btn-collab:hover { border-color: var(--ink); color: var(--ink); }
+    .post-collab-cta { display: flex; align-items: center; justify-content: space-between; padding: 32px 0; border-bottom: 1px solid var(--rule); font-size: 14px; color: var(--mid); }
+    .post-collab-cta button { padding: 9px 20px; background: var(--ink); color: #fff; border: none; border-radius: 100px; font-size: 12px; font-weight: 600; transition: opacity 0.15s; }
+    .post-collab-cta button:hover { opacity: 0.8; }
+    .collab-row { padding: 40px 0; border-bottom: 1px solid var(--rule); }
+    .collab-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .collab-poster { font-size: 16px; font-weight: 600; letter-spacing: -0.02em; }
+    .collab-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 8px; border-radius: 100px; }
+    .badge-open { background: #e6f4ed; color: #1a7a3c; }
+    .badge-closed { background: var(--hover); color: var(--dim); }
+    .collab-excerpt { font-size: 14px; line-height: 1.72; color: var(--mid); max-width: 560px; margin-bottom: 18px; }
+    .collab-footer { display: flex; align-items: center; gap: 8px; }
+    .btn-respond { margin-left: auto; padding: 8px 18px; background: none; border: 1px solid var(--rule); border-radius: 100px; font-size: 12px; font-weight: 600; color: var(--mid); transition: all 0.15s; }
+    .btn-respond:hover { border-color: var(--ink); color: var(--ink); }
+
+    /* ─── MAP VIEW ─────────────────────────────────────── */
+    #map-view { display: none; position: fixed; inset: 108px 0 0; z-index: 100; }
+    #map-view.active { display: flex; }
+    .map-sidebar { width: 320px; flex-shrink: 0; height: 100%; overflow-y: auto; background: var(--bg); border-right: 1px solid var(--rule); display: flex; flex-direction: column; font-family: var(--font); }
+    .map-sidebar-top { padding: 24px 24px 0; }
+    .map-city-row { margin-bottom: 16px; }
+    .map-city-select { font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--ink); border: none; background: none; outline: none; cursor: pointer; letter-spacing: -0.01em; appearance: none; }
+    .map-layer-btns { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+    .map-layer-btn { padding: 6px 14px; background: none; border: 1px solid var(--rule); border-radius: 100px; font-size: 11px; font-weight: 600; color: var(--mid); transition: all 0.15s; }
+    .map-layer-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .map-cat-pills { display: flex; gap: 4px; flex-wrap: wrap; padding-bottom: 16px; border-bottom: 1px solid var(--rule); }
+    .map-pill { padding: 5px 12px; background: none; border: 1px solid var(--rule); border-radius: 100px; font-size: 10px; font-weight: 600; color: var(--mid); transition: all 0.15s; }
+    .map-pill.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .map-results-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .map-result-item { padding: 16px 24px; border-bottom: 1px solid var(--rule); cursor: pointer; transition: background 0.1s; }
+    .map-result-item:hover { background: var(--hover); }
+    .map-result-item.featured { border-left: 2px solid var(--accent); }
+    .map-result-type { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); margin-bottom: 4px; }
+    .map-result-title { font-size: 13px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
+    .map-result-meta { font-size: 11px; color: var(--mid); margin-top: 3px; }
+    .map-result-price { font-size: 12px; font-weight: 600; color: var(--ink); margin-top: 6px; }
+    #leaflet-map { flex: 1; }
+    .leaflet-popup-content-wrapper { border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,0.12); border: 1px solid var(--rule); padding: 0; }
+    .leaflet-popup-content { margin: 0; }
+    .leaflet-popup-tip-container { display: none !important; }
+    .leaflet-popup-close-button { top: 10px !important; right: 10px !important; font-size: 16px !important; color: var(--mid) !important; }
+    .map-popup { padding: 20px; min-width: 220px; }
+    .map-popup-badge { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; background: var(--accent); color: #fff; margin-bottom: 8px; }
+    .map-popup-cat { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); margin-bottom: 4px; }
+    .map-popup-title { font-size: 14px; font-weight: 600; color: var(--ink); letter-spacing: -0.02em; margin-bottom: 6px; }
+    .map-popup-meta { font-size: 11px; color: var(--mid); line-height: 1.6; margin-bottom: 12px; }
+    .map-popup-row { display: flex; align-items: center; justify-content: space-between; }
+    .map-popup-price { font-size: 13px; font-weight: 700; color: var(--ink); }
+    .map-popup-btn { padding: 7px 14px; background: var(--ink); color: #fff; border: none; border-radius: 0; font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: opacity 0.15s; font-family: var(--font); }
+    .map-popup-btn:hover { opacity: 0.8; }
+    .custom-marker { width: 34px; height: 34px; border-radius: 50%; background: var(--ink); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 800; letter-spacing: 0.05em; box-shadow: 0 2px 8px rgba(0,0,0,0.25); border: 2px solid #fff; }
+    .custom-marker.featured { background: var(--accent); }
+    .custom-marker.creator { background: #333; }
+    .custom-marker.collab { background: #555; }
+    .custom-marker.venue { background: #1a7a3c; font-size: 14px; }
+
+    /* ─── SAVED VIEW ───────────────────────────────────── */
+    #saved-view { display: none; min-height: calc(100vh - 108px); padding: 120px 72px; align-items: center; justify-content: center; }
+    #saved-view.active { display: flex; }
+    #saved-view p { font-size: 14px; color: var(--dim); }
+
+    /* ─── FOOTER ───────────────────────────────────────── */
+    footer { background: var(--ink); color: rgba(255,255,255,0.85); padding: 96px 72px 56px; font-family: var(--font); }
+    .footer-top { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 64px; padding-bottom: 80px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .footer-brand-logo { font-family: var(--font); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 16px; }
+    .footer-brand-desc { font-size: 11px; line-height: 1.75; color: rgba(255,255,255,0.4); max-width: 280px; letter-spacing: 0.04em; }
+    .footer-col h4 { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 24px; }
+    .footer-col ul { list-style: none; }
+    .footer-col li { margin-bottom: 12px; }
+    .footer-col a { font-size: 11px; letter-spacing: 0.04em; color: rgba(255,255,255,0.5); transition: color 0.15s; }
+    .footer-col a:hover { color: #fff; }
+    .footer-bottom { display: flex; align-items: center; justify-content: space-between; padding-top: 40px; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.2); }
+    .footer-bottom a { color: rgba(255,255,255,0.35); }
+    .footer-bottom a:hover { color: #fff; }
+    .footer-logo-sm { font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+
+    /* ─── EVENT MODAL ──────────────────────────────────── */
+    .event-modal-overlay { position: fixed; inset: 0; background: rgba(15,15,15,0.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 9000; display: flex; align-items: flex-end; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
+    .event-modal-overlay.open { opacity: 1; pointer-events: all; }
+    .event-modal { background: var(--bg); border-radius: 0; width: 100%; max-width: 640px; padding: 32px 36px 48px; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.34,1.1,0.64,1); position: relative; max-height: 90vh; overflow-y: auto; border-top: 2px solid var(--ink); }
+    .event-modal-overlay.open .event-modal { transform: translateY(0); }
+    .modal-handle { width: 40px; height: 4px; background: var(--rule); border-radius: 2px; margin: 0 auto 32px; }
+    .modal-close { position: absolute; top: 20px; right: 20px; width: 32px; height: 32px; border-radius: 0; border: 1px solid var(--rule); background: var(--bg); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+    .modal-close:hover { background: var(--rule); }
+    .modal-badge-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .modal-cat { font-size: 10px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--mid); }
+    .modal-featured-badge { font-size: 9px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; background: var(--accent); color: #fff; padding: 2px 8px; border-radius: 100px; }
+    .modal-title { font-family: var(--font-display); font-size: 26px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; color: var(--ink); margin-bottom: 24px; text-transform: uppercase; }
+    .modal-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+    .modal-meta-item { background: var(--hover); border-radius: 0; border: 1px solid var(--rule); padding: 14px 16px; }
+    .modal-meta-label { font-size: 9px; font-weight: 700; letter-spacing: 1.3px; text-transform: uppercase; color: var(--dim); margin-bottom: 4px; }
+    .modal-meta-val { font-size: 13px; font-weight: 600; color: var(--ink); }
+    .modal-about { font-size: 14px; line-height: 1.75; color: var(--mid); margin-bottom: 28px; }
+    .modal-actions { display: flex; gap: 10px; }
+    .modal-ticket-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 24px; background: var(--ink); color: #fff; border: 1px solid var(--ink); border-radius: 0; font-family: var(--font); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; text-decoration: none; transition: opacity 0.2s; }
+    .modal-ticket-btn:hover { opacity: 0.8; }
+    .modal-ticket-btn.free { background: #1a7a3c; border-color: #1a7a3c; }
+    .modal-share-btn { width: 50px; height: 50px; border-radius: 0; border: 1px solid var(--rule); background: var(--bg); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s; }
+    .modal-share-btn:hover { background: var(--rule); }
+  </style>
+</head>
+<body>
+
+  <!-- OUTER CHROME / RODEO STRIP -->
+  <div class="rodeo-strip">
+    [ Rodeo Clubhouse ]<span class="sep">—</span>Marketing · Management · Events
+    <span class="sep">—</span>
+    <a href="#">[ Work with us → ]</a>
+  </div>
+
+  <!-- NAV -->
+  <nav class="main-nav">
+    <span class="nav-logo">SPOTD</span>
+    <ul class="nav-tabs">
+      <li><a href="#" class="active" data-tab="events">Events</a></li>
+      <li><a href="#" data-tab="map">Map</a></li>
+      <li><a href="#" data-tab="saved">Saved</a></li>
+    </ul>
+    <div class="nav-actions">
+      <button class="nav-btn secondary">Log in</button>
+      <button class="nav-btn primary">Join Free</button>
+    </div>
+  </nav>
+
+  <!-- EVENTS PAGE -->
+  <div id="events-page">
+
+    <!-- HERO -->
+    <section class="s-hero" id="heroSection">
+      <div class="hero-meta-row">
+        <div class="location-tag" id="locationTag">
+          <div class="location-pulse">
+            <span class="location-pulse-ring"></span>
+            <span class="location-pulse-dot"></span>
+          </div>
+          <div class="location-text-wrap">
+            <span class="loc-city" id="locCityText">Melbourne, AU</span>
+            <span class="loc-time" id="locTimeText">00:00 AEDT</span>
+          </div>
+        </div>
+        <span class="hero-event-count" id="heroBadgeText">8 events · Melbourne</span>
+      </div>
+
+      <div class="hero-center">
+        <h1 class="hero-title">Find Your<br>Scene.<br><em>Make Moves.</em></h1>
+      </div>
+
+      <div class="hero-foot">
+        <p class="hero-sub">Discover events, creators and venues near you — all in one place.</p>
+        <div class="hero-ctas">
+          <button class="hero-btn-primary" onclick="document.getElementById('searchInput').scrollIntoView({behavior:'smooth'});setTimeout(()=>document.getElementById('searchInput').focus(),600)">
+            Browse Events
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 6h7M7 3L10 6 7 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="hero-btn-secondary" onclick="document.querySelector('.nav-tabs a[data-tab=map]').click()">
+            View Map
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- EVENTS LISTING -->
+    <section class="s-events">
+
+      <!-- Controls -->
+      <div class="events-controls">
+        <div class="search-input-wrap">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M10 10L13 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <input class="search-input" id="searchInput" type="text" placeholder="Search events, venues, artists…" />
+        </div>
+        <select class="city-select" id="citySelect">
+          <option value="">All Cities</option>
+          <option value="Melbourne">Melbourne</option>
+          <option value="London">London</option>
+          <option value="Manchester">Manchester</option>
+          <option value="Birmingham">Birmingham</option>
+          <option value="New York">New York</option>
+        </select>
+        <button class="filter-toggle-btn" id="eventsFilterBtn">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1 2.5h9M3 5.5h5M5 8.5h1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Filter
+          <span class="filter-active-badge" id="filterActiveBadge">0</span>
+        </button>
+      </div>
+
+      <!-- Filter panel -->
+      <div class="events-filter-panel" id="eventsFilterPanel">
+        <div class="filter-panel-body">
+          <div>
+            <div class="filter-section-head">Genre</div>
+            <button class="filter-chip" data-ftype="genre" data-fval="Rap">Rap<svg class="filter-chip-check" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            <button class="filter-chip" data-ftype="genre" data-fval="Techno">Techno<svg class="filter-chip-check" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            <button class="filter-chip" data-ftype="genre" data-fval="Grime">Grime<svg class="filter-chip-check" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            <button class="filter-chip" data-ftype="genre" data-fval="Afrobeats">Afrobeats<svg class="filter-chip-check" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            <button class="filter-chip" data-ftype="genre" data-fval="Art">Art<svg class="filter-chip-check" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            <button class="filter-chip" data-ftype="genre" data-fval="Dance">Dance<svg class="filter-chip-check" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            <button class="filter-chip" data-ftype="genre" data-fval="Film">Film<svg class="filter-chip-check" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            <button class="filter-chip" data-ftype="genre" data-fval="Spoken Word">Spoken Word<svg class="filter-chip-check" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+          </div>
+          <div>
+            <div class="filter-section-head">City</div>
+            <button class="filter-chip" data-ftype="city" data-fval="Melbourne">Melbourne<svg class="filter-chip-check" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            <button class="filter-chip" data-ftype="city" data-fval="London">London<svg class="filter-chip-check" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            <button class="filter-chip" data-ftype="city" data-fval="Manchester">Manchester<svg class="filter-chip-check" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            <button class="filter-chip" data-ftype="city" data-fval="New York">New York<svg class="filter-chip-check" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+          </div>
+          <div>
+            <div class="filter-section-head">Price</div>
+            <button class="filter-chip" data-ftype="price" data-fval="free">Free Entry<svg class="filter-chip-check" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            <button class="filter-chip" data-ftype="price" data-fval="paid">Paid<svg class="filter-chip-check" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            <div style="margin-top:16px;"><button class="filter-clear-btn" id="filterClearBtn">Clear all</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter pills -->
+      <div class="filter-row">
+        <button class="pill active" data-cat="all">All</button>
+        <button class="pill" data-cat="Rap">Rap</button>
+        <button class="pill" data-cat="Techno">Techno</button>
+        <button class="pill" data-cat="Grime">Grime</button>
+        <button class="pill" data-cat="Afrobeats">Afrobeats</button>
+        <button class="pill" data-cat="Art">Art</button>
+        <button class="pill" data-cat="Dance">Dance</button>
+        <button class="pill" data-cat="Film">Film</button>
+        <button class="pill" data-cat="Spoken Word">Spoken Word</button>
+        <button class="pill" data-cat="Free">Free Entry</button>
+        <span class="results-count" id="resultsCount">8 events found</span>
+      </div>
+
+      <!-- Tonight -->
+      <div class="event-group-label">Tonight</div>
+
+      <div class="event-row featured" data-event="0" data-cat="Music" data-city="Melbourne" data-genre="Rap">
+        <div class="event-date-col">
+          <span class="event-day-num">13</span>
+          <span class="event-month">Mar</span>
+          <span class="event-dow">Thu</span>
+        </div>
+        <div class="event-body">
+          <div class="event-cat">Rap · Live Performance</div>
+          <div class="event-title">Open Cipher — Northside Sessions</div>
+          <div class="event-venue">The Toff in Town, Melbourne</div>
+          <div class="event-badges">
+            <span class="badge badge-featured">Featured</span>
+            <span class="badge badge-free">Free entry</span>
+          </div>
+        </div>
+        <div class="event-right">
+          <span class="event-price">Free</span>
+          <button class="save-btn" aria-label="Save"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 13.5S1.5 9.5 1.5 5.5a3.5 3.5 0 017 0 3.5 3.5 0 017 0C15.5 9.5 8 13.5 8 13.5z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></button>
+        </div>
+      </div>
+
+      <div class="event-row" data-event="1" data-cat="Music" data-city="Melbourne" data-genre="Techno">
+        <div class="event-date-col">
+          <span class="event-day-num">13</span>
+          <span class="event-month">Mar</span>
+          <span class="event-dow">Thu</span>
+        </div>
+        <div class="event-body">
+          <div class="event-cat">Techno · Club Night</div>
+          <div class="event-title">DRXFT — Late Night Club</div>
+          <div class="event-venue">Colour, Melbourne CBD</div>
+        </div>
+        <div class="event-right">
+          <span class="event-price">$15</span>
+          <button class="save-btn" aria-label="Save"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 13.5S1.5 9.5 1.5 5.5a3.5 3.5 0 017 0 3.5 3.5 0 017 0C15.5 9.5 8 13.5 8 13.5z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></button>
+        </div>
+      </div>
+
+      <div class="event-row" data-event="2" data-cat="Art" data-city="Melbourne" data-genre="Art">
+        <div class="event-date-col">
+          <span class="event-day-num">13</span>
+          <span class="event-month">Mar</span>
+          <span class="event-dow">Thu</span>
+        </div>
+        <div class="event-body">
+          <div class="event-cat">Art · Exhibition Opening</div>
+          <div class="event-title">Compound Interest — Group Show</div>
+          <div class="event-venue">7ART Gallery, Fitzroy</div>
+          <div class="event-badges"><span class="badge badge-free">Free entry</span></div>
+        </div>
+        <div class="event-right">
+          <span class="event-price">Free</span>
+          <button class="save-btn" aria-label="Save"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 13.5S1.5 9.5 1.5 5.5a3.5 3.5 0 017 0 3.5 3.5 0 017 0C15.5 9.5 8 13.5 8 13.5z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></button>
+        </div>
+      </div>
+
+      <!-- This Weekend -->
+      <div class="event-group-label">This Weekend</div>
+
+      <div class="event-row featured" data-event="3" data-cat="Music" data-city="London" data-genre="Grime">
+        <div class="event-date-col">
+          <span class="event-day-num">15</span>
+          <span class="event-month">Mar</span>
+          <span class="event-dow">Sat</span>
+        </div>
+        <div class="event-body">
+          <div class="event-cat">Grime · Live</div>
+          <div class="event-title">SPOTD Presents: Grime All Stars</div>
+          <div class="event-venue">Fabric, Farringdon, London</div>
+          <div class="event-badges"><span class="badge badge-featured">Featured</span></div>
+        </div>
+        <div class="event-right">
+          <span class="event-price">£12</span>
+          <button class="save-btn" aria-label="Save"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 13.5S1.5 9.5 1.5 5.5a3.5 3.5 0 017 0 3.5 3.5 0 017 0C15.5 9.5 8 13.5 8 13.5z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></button>
+        </div>
+      </div>
+
+      <div class="event-row" data-event="4" data-cat="Dance" data-city="Melbourne" data-genre="Dance">
+        <div class="event-date-col">
+          <span class="event-day-num">15</span>
+          <span class="event-month">Mar</span>
+          <span class="event-dow">Sat</span>
+        </div>
+        <div class="event-body">
+          <div class="event-cat">Dance · Performance</div>
+          <div class="event-title">Body Language — Contemporary Dance</div>
+          <div class="event-venue">Dancehouse, Carlton</div>
+        </div>
+        <div class="event-right">
+          <span class="event-price">$20</span>
+          <button class="save-btn" aria-label="Save"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 13.5S1.5 9.5 1.5 5.5a3.5 3.5 0 017 0 3.5 3.5 0 017 0C15.5 9.5 8 13.5 8 13.5z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></button>
+        </div>
+      </div>
+
+      <div class="event-row" data-event="5" data-cat="Film" data-city="New York" data-genre="Film">
+        <div class="event-date-col">
+          <span class="event-day-num">16</span>
+          <span class="event-month">Mar</span>
+          <span class="event-dow">Sun</span>
+        </div>
+        <div class="event-body">
+          <div class="event-cat">Film · Screening</div>
+          <div class="event-title">Underground Shorts Vol. 3</div>
+          <div class="event-venue">Anthology Film Archives, Manhattan</div>
+          <div class="event-badges"><span class="badge badge-free">Free entry</span></div>
+        </div>
+        <div class="event-right">
+          <span class="event-price">Free</span>
+          <button class="save-btn" aria-label="Save"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 13.5S1.5 9.5 1.5 5.5a3.5 3.5 0 017 0 3.5 3.5 0 017 0C15.5 9.5 8 13.5 8 13.5z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></button>
+        </div>
+      </div>
+
+      <!-- Next Week -->
+      <div class="event-group-label">Next Week</div>
+
+      <div class="event-row" data-event="6" data-cat="Spoken Word" data-city="Manchester" data-genre="Spoken Word">
+        <div class="event-date-col">
+          <span class="event-day-num">19</span>
+          <span class="event-month">Mar</span>
+          <span class="event-dow">Wed</span>
+        </div>
+        <div class="event-body">
+          <div class="event-cat">Spoken Word · Open Mic</div>
+          <div class="event-title">Say It Loud — Open Mic Night</div>
+          <div class="event-venue">The Deaf Institute, Manchester</div>
+          <div class="event-badges"><span class="badge badge-free">Free entry</span></div>
+        </div>
+        <div class="event-right">
+          <span class="event-price">Free</span>
+          <button class="save-btn" aria-label="Save"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 13.5S1.5 9.5 1.5 5.5a3.5 3.5 0 017 0 3.5 3.5 0 017 0C15.5 9.5 8 13.5 8 13.5z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></button>
+        </div>
+      </div>
+
+      <div class="event-row" data-event="7" data-cat="Music" data-city="Melbourne" data-genre="Afrobeats">
+        <div class="event-date-col">
+          <span class="event-day-num">21</span>
+          <span class="event-month">Mar</span>
+          <span class="event-dow">Fri</span>
+        </div>
+        <div class="event-body">
+          <div class="event-cat">Afrobeats · Live</div>
+          <div class="event-title">Wavelength — Live Music Series</div>
+          <div class="event-venue">Howler, Brunswick, Melbourne</div>
+        </div>
+        <div class="event-right">
+          <span class="event-price">$18</span>
+          <button class="save-btn" aria-label="Save"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 13.5S1.5 9.5 1.5 5.5a3.5 3.5 0 017 0 3.5 3.5 0 017 0C15.5 9.5 8 13.5 8 13.5z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></button>
+        </div>
+      </div>
+
+      <div class="empty-state" id="emptyState"><p>No events found — try a different search or city.</p></div>
+      <div class="load-more"><button>Load more events</button></div>
+    </section>
+
+    <!-- PEOPLE SECTION -->
+    <section class="s-people">
+      <div class="s-people-header">
+        <h2>People</h2>
+        <div class="people-tabs">
+          <div class="people-tab active" id="tab-creators">Creators</div>
+          <div class="people-tab" id="tab-collabs">Collabs</div>
+        </div>
+      </div>
+
+      <div id="panel-creators">
+        <div class="creator-row">
+          <div class="creator-avatar">SP</div>
+          <div class="creator-info">
+            <div class="creator-name">Sy the Poet</div>
+            <div class="creator-role">Rapper · Producer</div>
+            <div class="creator-tags"><span class="tag">Hip-Hop</span><span class="tag">Beats</span><span class="tag">Vinyl</span></div>
+            <div class="creator-city">London</div>
+          </div>
+          <div class="creator-action"><button class="btn-collab">Collab</button></div>
+        </div>
+        <div class="creator-row">
+          <div class="creator-avatar" style="background:#333;">ML</div>
+          <div class="creator-info">
+            <div class="creator-name">Mia Lau</div>
+            <div class="creator-role">Visual Artist · Illustrator</div>
+            <div class="creator-tags"><span class="tag">Digital Art</span><span class="tag">Murals</span></div>
+            <div class="creator-city">Melbourne</div>
+          </div>
+          <div class="creator-action"><button class="btn-collab">Collab</button></div>
+        </div>
+        <div class="creator-row">
+          <div class="creator-avatar" style="background:#1a1a1a;">DK</div>
+          <div class="creator-info">
+            <div class="creator-name">DJ Kaelo</div>
+            <div class="creator-role">DJ · Music Producer</div>
+            <div class="creator-tags"><span class="tag">Afrobeats</span><span class="tag">Club</span><span class="tag">Mixing</span></div>
+            <div class="creator-city">Melbourne</div>
+          </div>
+          <div class="creator-action"><button class="btn-collab">Collab</button></div>
+        </div>
+        <div class="creator-row">
+          <div class="creator-avatar" style="background:#2d2d2d;">TR</div>
+          <div class="creator-info">
+            <div class="creator-name">Tara Reeves</div>
+            <div class="creator-role">Filmmaker · Photographer</div>
+            <div class="creator-tags"><span class="tag">Short Film</span><span class="tag">Docs</span></div>
+            <div class="creator-city">New York</div>
+          </div>
+          <div class="creator-action"><button class="btn-collab">Collab</button></div>
+        </div>
+        <div class="creator-row">
+          <div class="creator-avatar" style="background:#222;">JC</div>
+          <div class="creator-info">
+            <div class="creator-name">Jamal Cole</div>
+            <div class="creator-role">Poet · Performer</div>
+            <div class="creator-tags"><span class="tag">Spoken Word</span><span class="tag">Theatre</span></div>
+            <div class="creator-city">Manchester</div>
+          </div>
+          <div class="creator-action"><button class="btn-collab">Collab</button></div>
+        </div>
+        <div class="load-more"><button>See more creators</button></div>
+      </div>
+
+      <div id="panel-collabs" style="display:none;">
+        <div class="post-collab-cta">
+          <span>Looking for someone? Post what you need.</span>
+          <button>Post a Collab</button>
+        </div>
+        <div class="collab-row">
+          <div class="collab-header"><span class="collab-poster">Mia Lau</span><span class="collab-badge badge-open">Open</span></div>
+          <p class="collab-excerpt">Looking for a musician to score my upcoming short film. 12-minute experimental piece, dark and ambient. Some budget available.</p>
+          <div class="collab-footer"><span class="tag">Film</span><span class="tag">Composer</span><button class="btn-respond">Respond</button></div>
+        </div>
+        <div class="collab-row">
+          <div class="collab-header"><span class="collab-poster">Sy the Poet</span><span class="collab-badge badge-open">Open</span></div>
+          <p class="collab-excerpt">Need a visual artist for my EP cover. Something raw, hand-drawn, black ink. Happy to give a production credit.</p>
+          <div class="collab-footer"><span class="tag">Music</span><span class="tag">Visual Art</span><button class="btn-respond">Respond</button></div>
+        </div>
+        <div class="collab-row">
+          <div class="collab-header"><span class="collab-poster">Collective: SCAPE</span><span class="collab-badge badge-closed">Closed</span></div>
+          <p class="collab-excerpt">Seeking a choreographer for our April performance residency in Brunswick. Paid gig, 3-week run.</p>
+          <div class="collab-footer"><span class="tag">Dance</span><span class="tag">Choreographer</span></div>
+        </div>
+        <div class="load-more"><button>See more collabs</button></div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+      <div class="footer-top">
+        <div>
+          <div class="footer-brand-logo">SPOTD</div>
+          <p class="footer-brand-desc">The platform for discovering events, connecting with creators, and finding venues near you.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Discover</h4>
+          <ul>
+            <li><a href="#">Events</a></li>
+            <li><a href="#">Map</a></li>
+            <li><a href="#">Creators</a></li>
+            <li><a href="#">Collabs</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Cities</h4>
+          <ul>
+            <li><a href="#">Melbourne</a></li>
+            <li><a href="#">London</a></li>
+            <li><a href="#">Manchester</a></li>
+            <li><a href="#">New York</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Company</h4>
+          <ul>
+            <li><a href="#">About SPOTD</a></li>
+            <li><a href="#">Rodeo Clubhouse</a></li>
+            <li><a href="#">Work with us</a></li>
+            <li><a href="#">Contact</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span class="footer-logo-sm">SPOTD</span>
+        <span>© 2025 SPOTD · Powered by <a href="#">Rodeo Clubhouse</a></span>
+        <span><a href="#">Privacy</a> &nbsp;·&nbsp; <a href="#">Terms</a></span>
+      </div>
+    </footer>
+
+  </div><!-- /events-page -->
+
+  <!-- MAP VIEW -->
+  <div id="map-view">
+    <div class="map-sidebar">
+      <div class="map-sidebar-top">
+        <div class="map-city-row">
+          <select class="map-city-select" id="mapCitySelect">
+            <option value="">All Cities</option>
+            <option value="Melbourne">Melbourne</option>
+            <option value="London">London</option>
+            <option value="Manchester">Manchester</option>
+            <option value="Birmingham">Birmingham</option>
+            <option value="New York">New York</option>
+          </select>
+        </div>
+        <div class="map-layer-btns">
+          <button class="map-layer-btn active" data-layer="events">Events</button>
+          <button class="map-layer-btn" data-layer="creators">Creators</button>
+          <button class="map-layer-btn" data-layer="collabs">Collabs</button>
+          <button class="map-layer-btn" data-layer="venues">Venues</button>
+        </div>
+        <div class="map-cat-pills" id="mapCatPills">
+          <button class="map-pill active" data-cat="all">All</button>
+          <button class="map-pill" data-cat="Music">Music</button>
+          <button class="map-pill" data-cat="Art">Art</button>
+          <button class="map-pill" data-cat="Film">Film</button>
+          <button class="map-pill" data-cat="Dance">Dance</button>
+          <button class="map-pill" data-cat="Spoken Word">Spoken Word</button>
+          <button class="map-pill" data-cat="Free">Free</button>
+        </div>
+      </div>
+      <div class="map-results-list" id="mapResultsList"></div>
+    </div>
+    <div id="leaflet-map"></div>
+  </div>
+
+  <!-- SAVED VIEW -->
+  <div id="saved-view">
+    <p>No saved events yet — heart an event to save it here.</p>
+  </div>
+
+  <script>
+    // ─── Location Tag ─────────────────────────────────────
+    const locData = {
+      'Melbourne':  { tz: 'Australia/Melbourne', abbr: 'AEDT', label: 'Melbourne, AU' },
+      'London':     { tz: 'Europe/London',       abbr: 'GMT',  label: 'London, UK'    },
+      'Manchester': { tz: 'Europe/London',       abbr: 'GMT',  label: 'Manchester, UK'},
+      'Birmingham': { tz: 'Europe/London',       abbr: 'GMT',  label: 'Birmingham, UK'},
+      'New York':   { tz: 'America/New_York',    abbr: 'EST',  label: 'New York, US'  },
+    };
+    let locCity = 'Melbourne';
+    function updateLocTag() {
+      const d = locData[locCity] || locData['Melbourne'];
+      const t = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: d.tz });
+      document.getElementById('locCityText').textContent = d.label;
+      document.getElementById('locTimeText').textContent = t + ' ' + d.abbr;
+    }
+    updateLocTag();
+    setInterval(updateLocTag, 1000);
+    document.getElementById('citySelect').addEventListener('change', e => {
+      locCity = e.target.value || 'Melbourne';
+      updateLocTag();
+      updateHeroBadge();
+    });
+    function updateHeroBadge() {
+      const city = document.getElementById('citySelect').value || 'Melbourne';
+      const count = document.getElementById('resultsCount').textContent.split(' ')[0] || '8';
+      document.getElementById('heroBadgeText').textContent = count + ' events · ' + city;
+    }
+
+    // ─── Data ─────────────────────────────────────────────
+    const events = [
+      { cat: 'Rap · Live Performance', title: 'Open Cipher — Northside Sessions',
+        date: 'Thursday 13 March', time: 'Doors 7PM', venue: 'The Toff in Town, Melbourne',
+        price: 'Free entry', about: 'Open cipher tonight. Step up. Freestyle, feature sets and an open floor for anyone who wants the mic. No booking needed.',
+        btn1: 'RSVP Free', ticketUrl: 'https://www.thetoff.com.au', featured: true, city: 'Melbourne', lat: -37.8136, lng: 144.9631 },
+      { cat: 'Techno · Club Night', title: 'DRXFT — Late Night Club',
+        date: 'Thursday 13 March', time: 'Doors 10PM', venue: 'Colour, Melbourne CBD',
+        price: '$15', about: 'Four rooms. All night. Local and international selectors across techno, bass and experimental club music.',
+        btn1: 'Get Tickets', ticketUrl: 'https://www.moshtix.com.au', featured: false, city: 'Melbourne', lat: -37.8152, lng: 144.9575 },
+      { cat: 'Art · Exhibition Opening', title: 'Compound Interest — Group Show',
+        date: 'Thursday 13 March', time: '6PM – 9PM', venue: '7ART Gallery, Fitzroy',
+        price: 'Free entry', about: 'Ten artists. One theme: accumulation. A group exhibition exploring how objects, images and gestures build meaning over time.',
+        btn1: 'RSVP Free', ticketUrl: 'https://www.eventbrite.com.au', featured: false, city: 'Melbourne', lat: -37.7963, lng: 144.9793 },
+      { cat: 'Grime · Live', title: 'SPOTD Presents: Grime All Stars',
+        date: 'Saturday 15 March', time: 'Doors 9PM', venue: 'Fabric, Farringdon, London',
+        price: '£12', about: 'SPOTD\'s London showcase brings together the city\'s sharpest grime voices for a night built around live performance and energy.',
+        btn1: 'Get Tickets', ticketUrl: 'https://www.fabriclondon.com', featured: true, city: 'London', lat: 51.5227, lng: -0.1011 },
+      { cat: 'Dance · Performance', title: 'Body Language — Contemporary Dance',
+        date: 'Saturday 15 March', time: '7:30PM', venue: 'Dancehouse, Carlton',
+        price: '$20', about: 'A new work from choreographer Ayla Penn exploring the body as site for memory and resistance.',
+        btn1: 'Get Tickets', ticketUrl: 'https://www.dancehouse.com.au', featured: false, city: 'Melbourne', lat: -37.8013, lng: 144.9700 },
+      { cat: 'Film · Screening', title: 'Underground Shorts Vol. 3',
+        date: 'Sunday 16 March', time: '7PM', venue: 'Anthology Film Archives, Manhattan',
+        price: 'Free entry', about: 'Curated programme of short films by emerging and underground filmmakers from across the US and internationally.',
+        btn1: 'RSVP Free', ticketUrl: 'https://www.anthologyfilmarchives.org', featured: false, city: 'New York', lat: 40.7258, lng: -73.9894 },
+      { cat: 'Spoken Word · Open Mic', title: 'Say It Loud — Open Mic Night',
+        date: 'Wednesday 19 March', time: 'Doors 7:30PM', venue: 'The Deaf Institute, Manchester',
+        price: 'Free entry', about: 'Free voices. All voices welcome. An open mic for spoken word, poetry, essays and anything in between.',
+        btn1: 'RSVP Free', ticketUrl: 'https://www.thedeafinstitute.co.uk', featured: false, city: 'Manchester', lat: 53.4731, lng: -2.2353 },
+      { cat: 'Afrobeats · Live', title: 'Wavelength — Live Music Series',
+        date: 'Friday 21 March', time: 'Doors 8PM', venue: 'Howler, Brunswick, Melbourne',
+        price: '$18', about: 'The monthly live series returns with a full band Afrobeats showcase. Three acts. One stage.',
+        btn1: 'Get Tickets', ticketUrl: 'https://www.howler.com.au', featured: false, city: 'Melbourne', lat: -37.7712, lng: 144.9620 }
+    ];
+
+    const creators = [
+      { initials: 'SP', name: 'Sy the Poet', role: 'Rapper · Producer', tags: ['Hip-Hop','Beats','Vinyl'], city: 'London', lat: 51.5074, lng: -0.1278 },
+      { initials: 'ML', name: 'Mia Lau', role: 'Visual Artist · Illustrator', tags: ['Digital Art','Murals'], city: 'Melbourne', lat: -37.8000, lng: 144.9750 },
+      { initials: 'DK', name: 'DJ Kaelo', role: 'DJ · Music Producer', tags: ['Afrobeats','Club','Mixing'], city: 'Melbourne', lat: -37.8200, lng: 144.9680 },
+      { initials: 'TR', name: 'Tara Reeves', role: 'Filmmaker · Photographer', tags: ['Short Film','Docs'], city: 'New York', lat: 40.7128, lng: -74.0060 },
+      { initials: 'JC', name: 'Jamal Cole', role: 'Poet · Performer', tags: ['Spoken Word','Theatre'], city: 'Manchester', lat: 53.4808, lng: -2.2426 }
+    ];
+
+    const venues = [
+      { name: 'The Toff in Town', type: 'Bar · Live Venue', capacity: '350 standing', price: 'From $800/night', about: 'Iconic Melbourne CBD venue. Stage, PA, lighting rig, bar. Available Sun–Thu for private hire.', city: 'Melbourne', lat: -37.8136, lng: 144.9631, available: true },
+      { name: 'Howler', type: 'Music Venue · Outdoor', capacity: '1,200 standing', price: 'From $2,500/night', about: 'Brunswick\'s favourite. Indoor stage + sprawling outdoor area. Full production included.', city: 'Melbourne', lat: -37.7712, lng: 144.9620, available: true },
+      { name: 'Colour', type: 'Club · Multi-room', capacity: '600 standing', price: 'From $1,200/night', about: 'Melbourne CBD club with four rooms, d&b sound system, lighting and separate bar areas.', city: 'Melbourne', lat: -37.8152, lng: 144.9575, available: false },
+      { name: '7ART Gallery', type: 'Gallery · Event Space', capacity: '120 guests', price: 'From $450/day', about: 'Fitzroy gallery with raw brick walls, high ceilings and natural light. Great for openings and small performances.', city: 'Melbourne', lat: -37.7963, lng: 144.9793, available: true },
+      { name: 'Dancehouse', type: 'Studio · Performance Space', capacity: '200 seated', price: 'From $600/day', about: 'Carlton dance and performance venue. Sprung floor, black box theatre, rehearsal rooms available separately.', city: 'Melbourne', lat: -37.8013, lng: 144.9700, available: true },
+      { name: 'The Deaf Institute', type: 'Bar · Music Venue', capacity: '300 standing', price: 'From $700/night', about: 'Manchester favourite. Two floors, stage downstairs, lounge upstairs. Full AV, PA and lighting included.', city: 'Manchester', lat: 53.4731, lng: -2.2353, available: true },
+      { name: 'Fabric', type: 'Club · Multi-room', capacity: '2,500 standing', price: 'POA', about: 'Iconic London club. Three rooms. World-class sound. Private hire available for special events — enquire directly.', city: 'London', lat: 51.5227, lng: -0.1011, available: false },
+      { name: 'Anthology Film Archives', type: 'Cinema · Event Space', capacity: '180 seated', price: 'From $900/evening', about: 'Lower East Side cinema and cultural space. Ideal for film screenings, talks, launches and hybrid events.', city: 'New York', lat: 40.7258, lng: -73.9894, available: true }
+    ];
+
+    const collabs = [
+      { poster: 'Mia Lau', initials: 'ML', excerpt: 'Looking for a musician to score my upcoming short film. 12-minute experimental piece, dark and ambient.', tags: ['Film','Composer'], open: true, city: 'Melbourne', lat: -37.7950, lng: 144.9850 },
+      { poster: 'Sy the Poet', initials: 'SP', excerpt: 'Need a visual artist for my EP cover. Something raw, hand-drawn, black ink.', tags: ['Music','Visual Art'], open: true, city: 'London', lat: 51.5150, lng: -0.0950 },
+      { poster: 'Collective: SCAPE', initials: 'SC', excerpt: 'Seeking a choreographer for our April performance residency in Brunswick. Paid gig, 3-week run.', tags: ['Dance','Choreographer'], open: false, city: 'Melbourne', lat: -37.7760, lng: 144.9590 }
+    ];
+
+    // ─── Genre badge injection + expandable rows ──────────
+    const musicGenres = new Set(['Rap','Techno','Grime','Afrobeats','House','Drum & Bass','Jazz']);
+    document.querySelectorAll('.event-row').forEach((row, i) => {
+      const ev = events[i];
+      const genre = row.dataset.genre || ev.cat.split('·')[0].trim();
+      const isMusic = musicGenres.has(genre);
+      const catDiv = row.querySelector('.event-cat');
+      const subtype = ev.cat.includes('·') ? ev.cat.split('·')[1].trim() : '';
+      catDiv.innerHTML = `<span class="genre-badge ${isMusic ? 'gm' : ''}">${genre}</span><span style="font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;">${subtype}</span>`;
+      const rightDiv = row.querySelector('.event-right');
+      const chevron = document.createElement('svg');
+      chevron.setAttribute('class','row-chevron'); chevron.setAttribute('viewBox','0 0 12 12'); chevron.setAttribute('fill','none');
+      chevron.innerHTML = '<path d="M2 4.5L6 8L10 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+      rightDiv.appendChild(chevron);
+      const expand = document.createElement('div');
+      expand.className = 'event-row-expand';
+      expand.id = 'expand-' + i;
+      expand.innerHTML = `
+        <div class="expand-inner">
+          <p class="expand-about">${ev.about}</p>
+          <div class="expand-meta-row">
+            <div><div class="expand-meta-label">Genre</div><div class="expand-meta-val">${genre}</div></div>
+            <div><div class="expand-meta-label">Date</div><div class="expand-meta-val">${ev.date}</div></div>
+            <div><div class="expand-meta-label">Time</div><div class="expand-meta-val">${ev.time}</div></div>
+            <div><div class="expand-meta-label">Price</div><div class="expand-meta-val">${ev.price}</div></div>
+          </div>
+          <div class="expand-actions">
+            <button class="expand-cta" onclick="openModal(${i})">${ev.btn1}</button>
+            <button class="expand-cta sec">Save</button>
+          </div>
+        </div>`;
+      row.insertAdjacentElement('afterend', expand);
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('.save-btn')) return;
+        const open = row.classList.toggle('expanded');
+        expand.classList.toggle('open', open);
+        if (open) expand.style.maxHeight = expand.scrollHeight + 'px';
+        else expand.style.maxHeight = '0';
+      });
+    });
+
+    // ─── Save buttons ─────────────────────────────────────
+    document.querySelectorAll('.save-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        btn.classList.toggle('saved');
+        const svg = btn.querySelector('path');
+        svg.setAttribute('fill', btn.classList.contains('saved') ? '#0000EE' : 'none');
+        svg.setAttribute('stroke', btn.classList.contains('saved') ? '#0000EE' : 'currentColor');
+      });
+    });
+
+    // ─── Filter state ──────────────────────────────────────
+    let activeCat  = 'all';
+    let activeCity = '';
+    let searchTerm = '';
+    const panelFilters = { genre: new Set(), city: new Set(), price: new Set() };
+
+    document.querySelectorAll('.pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        activeCat = pill.dataset.cat;
+        filterEvents();
+      });
+    });
+    document.getElementById('searchInput').addEventListener('input', e => { searchTerm = e.target.value.toLowerCase(); filterEvents(); });
+    document.getElementById('citySelect').addEventListener('change', e => { activeCity = e.target.value; filterEvents(); });
+
+    const eventsFilterBtn   = document.getElementById('eventsFilterBtn');
+    const eventsFilterPanel = document.getElementById('eventsFilterPanel');
+    const filterActiveBadge = document.getElementById('filterActiveBadge');
+
+    eventsFilterBtn.addEventListener('click', () => {
+      const open = eventsFilterPanel.classList.toggle('open');
+      eventsFilterBtn.classList.toggle('active', open);
+    });
+    document.getElementById('filterClearBtn').addEventListener('click', () => {
+      panelFilters.genre.clear(); panelFilters.city.clear(); panelFilters.price.clear();
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      updateFilterBadge(); filterEvents();
+    });
+    document.querySelectorAll('.filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const type = chip.dataset.ftype, val = chip.dataset.fval;
+        if (panelFilters[type].has(val)) { panelFilters[type].delete(val); chip.classList.remove('active'); }
+        else { panelFilters[type].add(val); chip.classList.add('active'); }
+        updateFilterBadge(); filterEvents();
+      });
+    });
+    function updateFilterBadge() {
+      const count = panelFilters.genre.size + panelFilters.city.size + panelFilters.price.size;
+      filterActiveBadge.textContent = count;
+      filterActiveBadge.classList.toggle('visible', count > 0);
+      eventsFilterBtn.classList.toggle('active', count > 0 || eventsFilterPanel.classList.contains('open'));
+    }
+    function filterEvents() {
+      const rows = document.querySelectorAll('.event-row');
+      let visible = 0;
+      rows.forEach((row, i) => {
+        const ev = events[i];
+        const genre  = row.dataset.genre || '';
+        const isFree = ev.price === 'Free entry';
+        const pillMatch = activeCat === 'all' ? true : activeCat === 'Free' ? isFree : genre.toLowerCase() === activeCat.toLowerCase() || ev.cat.toLowerCase().includes(activeCat.toLowerCase());
+        const panelGenreMatch = panelFilters.genre.size === 0 || panelFilters.genre.has(genre);
+        const panelCityMatch  = panelFilters.city.size === 0 || panelFilters.city.has(row.dataset.city);
+        let panelPriceMatch = true;
+        if (panelFilters.price.size > 0) {
+          if (panelFilters.price.has('free') && panelFilters.price.has('paid')) panelPriceMatch = true;
+          else if (panelFilters.price.has('free')) panelPriceMatch = isFree;
+          else if (panelFilters.price.has('paid')) panelPriceMatch = !isFree;
+        }
+        const cityMatch = !activeCity || row.dataset.city === activeCity;
+        const termMatch = !searchTerm || ev.title.toLowerCase().includes(searchTerm) || ev.venue.toLowerCase().includes(searchTerm) || ev.cat.toLowerCase().includes(searchTerm) || genre.toLowerCase().includes(searchTerm);
+        const show = pillMatch && panelGenreMatch && panelCityMatch && panelPriceMatch && cityMatch && termMatch;
+        row.style.display = show ? 'grid' : 'none';
+        const expandEl = document.getElementById('expand-' + i);
+        if (expandEl && !show) { expandEl.style.display = 'none'; row.classList.remove('expanded'); expandEl.classList.remove('open'); expandEl.style.maxHeight = '0'; }
+        else if (expandEl) { expandEl.style.display = ''; }
+        if (show) visible++;
+      });
+      const label = visible === 1 ? ' event' : ' events';
+      document.getElementById('resultsCount').textContent = visible + label + ' found';
+      document.getElementById('emptyState').style.display = visible === 0 ? 'block' : 'none';
+      const city = document.getElementById('citySelect').value || 'Melbourne';
+      document.getElementById('heroBadgeText').textContent = visible + label + ' · ' + city;
+    }
+
+    // ─── People tabs ───────────────────────────────────────
+    document.getElementById('tab-creators').addEventListener('click', () => {
+      document.getElementById('tab-creators').classList.add('active');
+      document.getElementById('tab-collabs').classList.remove('active');
+      document.getElementById('panel-creators').style.display = '';
+      document.getElementById('panel-collabs').style.display = 'none';
+    });
+    document.getElementById('tab-collabs').addEventListener('click', () => {
+      document.getElementById('tab-collabs').classList.add('active');
+      document.getElementById('tab-creators').classList.remove('active');
+      document.getElementById('panel-creators').style.display = 'none';
+      document.getElementById('panel-collabs').style.display = '';
+    });
+
+    // ─── Tab switching ─────────────────────────────────────
+    const eventsPage = document.getElementById('events-page');
+    const mapView    = document.getElementById('map-view');
+    const savedView  = document.getElementById('saved-view');
+    let mapInitialised = false;
+    let leafletMap, markerLayer;
+    let activeMapLayer = 'events', activeMapCat = 'all', activeMapCity = '';
+
+    document.querySelectorAll('.nav-tabs a').forEach(tab => {
+      tab.addEventListener('click', e => {
+        e.preventDefault();
+        document.querySelectorAll('.nav-tabs a').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const which = tab.dataset.tab;
+        eventsPage.style.display = which === 'events' ? '' : 'none';
+        mapView.classList.toggle('active', which === 'map');
+        savedView.classList.toggle('active', which === 'saved');
+        if (which === 'map' && !mapInitialised) initMap();
+      });
+    });
+
+    // ─── MAP INIT ──────────────────────────────────────────
+    function initMap() {
+      mapInitialised = true;
+      leafletMap = L.map('leaflet-map', { zoomControl: true }).setView([-37.8136, 144.9631], 13);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© OpenStreetMap contributors © CARTO', subdomains: 'abcd', maxZoom: 19 }).addTo(leafletMap);
+      markerLayer = L.layerGroup().addTo(leafletMap);
+      document.getElementById('mapCitySelect').addEventListener('change', e => {
+        activeMapCity = e.target.value;
+        const centres = { Melbourne:[-37.8136,144.9631,13], London:[51.5074,-0.1278,12], Manchester:[53.4808,-2.2426,13], Birmingham:[52.4862,-1.8904,13], 'New York':[40.7128,-74.0060,12] };
+        if (centres[activeMapCity]) { const [lat,lng,zoom]=centres[activeMapCity]; leafletMap.setView([lat,lng],zoom); }
+        renderMapMarkers();
+      });
+      document.querySelectorAll('#mapCatPills .map-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+          document.querySelectorAll('#mapCatPills .map-pill').forEach(p => p.classList.remove('active'));
+          pill.classList.add('active'); activeMapCat = pill.dataset.cat; renderMapMarkers();
+        });
+      });
+      document.querySelectorAll('.map-layer-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.map-layer-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active'); activeMapLayer = btn.dataset.layer;
+          document.getElementById('mapCatPills').style.display = activeMapLayer === 'events' ? 'flex' : 'none';
+          renderMapMarkers();
+        });
+      });
+      renderMapMarkers();
+    }
+    function makeIcon(cls, label) {
+      return L.divIcon({ html: `<div class="custom-marker ${cls}">${label}</div>`, className: '', iconSize: [34,34], iconAnchor: [17,17], popupAnchor: [0,-20] });
+    }
+    function renderMapMarkers() {
+      markerLayer.clearLayers();
+      const list = document.getElementById('mapResultsList');
+      list.innerHTML = '';
+      if (activeMapLayer === 'events') {
+        events.forEach((ev, i) => {
+          const catOk = activeMapCat === 'all' || (activeMapCat === 'Free' ? ev.price === 'Free entry' : ev.cat.toLowerCase().includes(activeMapCat.toLowerCase()));
+          const cityOk = !activeMapCity || ev.city === activeMapCity;
+          if (!catOk || !cityOk) return;
+          const icon = makeIcon(ev.featured ? 'featured' : '', ev.cat.split('·')[0].trim().substring(0,3).toUpperCase());
+          const m = L.marker([ev.lat, ev.lng], { icon }).addTo(markerLayer);
+          const popup = `<div class="map-popup">${ev.featured ? '<span class="map-popup-badge">Featured</span>' : ''}<div class="map-popup-cat">${ev.cat}</div><div class="map-popup-title">${ev.title}</div><div class="map-popup-meta">${ev.venue}<br>${ev.date} · ${ev.time}</div><div class="map-popup-row"><span class="map-popup-price">${ev.price}</span><button class="map-popup-btn" onclick="openModal(${i})">${ev.btn1}</button></div></div>`;
+          m.bindPopup(popup, { closeButton: true, offset: [0,0] });
+          const item = document.createElement('div');
+          item.className = 'map-result-item' + (ev.featured ? ' featured' : '');
+          item.innerHTML = `<div class="map-result-type">${ev.cat}</div><div class="map-result-title">${ev.title}</div><div class="map-result-meta">${ev.venue}</div><div class="map-result-price">${ev.price}</div>`;
+          item.addEventListener('click', () => { leafletMap.setView([ev.lat, ev.lng], 15); m.openPopup(); });
+          list.appendChild(item);
+        });
+      } else if (activeMapLayer === 'creators') {
+        creators.forEach(cr => {
+          const cityOk = !activeMapCity || cr.city === activeMapCity;
+          if (!cityOk) return;
+          const icon = makeIcon('creator', cr.initials);
+          const m = L.marker([cr.lat, cr.lng], { icon }).addTo(markerLayer);
+          const popup = `<div class="map-popup"><div class="map-popup-cat">${cr.role}</div><div class="map-popup-title">${cr.name}</div><div class="map-popup-meta">${cr.tags.join(' · ')}<br>${cr.city}</div><div class="map-popup-row"><span class="map-popup-price">Creator</span><button class="map-popup-btn">Collab</button></div></div>`;
+          m.bindPopup(popup, { closeButton: true });
+          const item = document.createElement('div');
+          item.className = 'map-result-item';
+          item.innerHTML = `<div class="map-result-type">${cr.role}</div><div class="map-result-title">${cr.name}</div><div class="map-result-meta">${cr.tags.join(' · ')}</div><div class="map-result-meta">${cr.city}</div>`;
+          item.addEventListener('click', () => { leafletMap.setView([cr.lat, cr.lng], 15); m.openPopup(); });
+          list.appendChild(item);
+        });
+      } else if (activeMapLayer === 'collabs') {
+        collabs.forEach(co => {
+          const cityOk = !activeMapCity || co.city === activeMapCity;
+          if (!cityOk) return;
+          const icon = makeIcon('collab', co.initials);
+          const m = L.marker([co.lat, co.lng], { icon }).addTo(markerLayer);
+          const popup = `<div class="map-popup">${co.open ? '<span class="map-popup-badge">Open</span>' : ''}<div class="map-popup-cat">Collab post</div><div class="map-popup-title">${co.poster}</div><div class="map-popup-meta">${co.excerpt.substring(0,80)}…</div><div class="map-popup-row"><span class="map-popup-price">${co.tags.join(' · ')}</span><button class="map-popup-btn">Respond</button></div></div>`;
+          m.bindPopup(popup, { closeButton: true });
+          const item = document.createElement('div');
+          item.className = 'map-result-item' + (co.open ? ' featured' : '');
+          item.innerHTML = `<div class="map-result-type">Collab · ${co.open ? 'Open' : 'Closed'}</div><div class="map-result-title">${co.poster}</div><div class="map-result-meta">${co.excerpt.substring(0,70)}…</div>`;
+          item.addEventListener('click', () => { leafletMap.setView([co.lat, co.lng], 15); m.openPopup(); });
+          list.appendChild(item);
+        });
+      } else if (activeMapLayer === 'venues') {
+        venues.forEach(v => {
+          const cityOk = !activeMapCity || v.city === activeMapCity;
+          if (!cityOk) return;
+          const icon = makeIcon('venue', '⬡');
+          const m = L.marker([v.lat, v.lng], { icon }).addTo(markerLayer);
+          const popup = `<div class="map-popup">${v.available ? '<span class="map-popup-badge">Available</span>' : '<span style="display:inline-block;font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;padding:2px 7px;border-radius:4px;color:var(--mid);background:var(--hover);border:1px solid var(--rule);margin-bottom:6px;">Enquire</span>'}<div class="map-popup-cat">${v.type}</div><div class="map-popup-title">${v.name}</div><div class="map-popup-meta">${v.about.substring(0,80)}…<br>${v.capacity}</div><div class="map-popup-row"><span class="map-popup-price">${v.price}</span><button class="map-popup-btn">Enquire</button></div></div>`;
+          m.bindPopup(popup, { closeButton: true });
+          const item = document.createElement('div');
+          item.className = 'map-result-item' + (v.available ? ' featured' : '');
+          item.innerHTML = `<div class="map-result-type">${v.type} · ${v.available ? 'Available' : 'Enquire'}</div><div class="map-result-title">${v.name}</div><div class="map-result-meta">${v.capacity} · ${v.city}</div><div class="map-result-price">${v.price}</div>`;
+          item.addEventListener('click', () => { leafletMap.setView([v.lat, v.lng], 15); m.openPopup(); });
+          list.appendChild(item);
+        });
+      }
+      if (list.children.length === 0) {
+        list.innerHTML = '<div style="padding:24px 16px;color:var(--mid);font-size:12px;">Nothing found — adjust city or filter.</div>';
+      }
+    }
+  </script>
+
+  <!-- EVENT MODAL -->
+  <div class="event-modal-overlay" id="eventModalOverlay" onclick="if(event.target===this)closeModal()">
+    <div class="event-modal" id="eventModal">
+      <div class="modal-handle"></div>
+      <button class="modal-close" onclick="closeModal()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="#0F0F0F" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="modal-badge-row">
+        <span class="modal-cat" id="modalCat"></span>
+        <span class="modal-featured-badge" id="modalFeatured" style="display:none">Featured</span>
+      </div>
+      <div class="modal-title" id="modalTitle"></div>
+      <div class="modal-meta-grid">
+        <div class="modal-meta-item"><div class="modal-meta-label">Venue</div><div class="modal-meta-val" id="modalVenue"></div></div>
+        <div class="modal-meta-item"><div class="modal-meta-label">Date</div><div class="modal-meta-val" id="modalDate"></div></div>
+        <div class="modal-meta-item"><div class="modal-meta-label">Doors</div><div class="modal-meta-val" id="modalTime"></div></div>
+        <div class="modal-meta-item"><div class="modal-meta-label">Price</div><div class="modal-meta-val" id="modalPrice"></div></div>
+      </div>
+      <p class="modal-about" id="modalAbout"></p>
+      <div class="modal-actions">
+        <a class="modal-ticket-btn" id="modalTicketBtn" href="#" target="_blank" rel="noopener"></a>
+        <button class="modal-share-btn" title="Share" onclick="navigator.share&&navigator.share({title:document.getElementById('modalTitle').textContent,url:window.location.href})">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="13" cy="2.5" r="1.5" stroke="#0F0F0F" stroke-width="1.3"/><circle cx="13" cy="13.5" r="1.5" stroke="#0F0F0F" stroke-width="1.3"/><circle cx="3" cy="8" r="1.5" stroke="#0F0F0F" stroke-width="1.3"/><path d="M4.4 7.2L11.7 3.3M4.4 8.8l7.3 3.9" stroke="#0F0F0F" stroke-width="1.3" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openModal(i) {
+      const ev = events[i];
+      if (!ev) return;
+      document.getElementById('modalCat').textContent   = ev.cat;
+      document.getElementById('modalFeatured').style.display = ev.featured ? '' : 'none';
+      document.getElementById('modalTitle').textContent = ev.title;
+      document.getElementById('modalVenue').textContent = ev.venue;
+      document.getElementById('modalDate').textContent  = ev.date;
+      document.getElementById('modalTime').textContent  = ev.time;
+      document.getElementById('modalPrice').textContent = ev.price;
+      document.getElementById('modalAbout').textContent = ev.about;
+      const btn = document.getElementById('modalTicketBtn');
+      btn.textContent = ev.btn1;
+      btn.href = ev.ticketUrl || '#';
+      btn.className = 'modal-ticket-btn' + (ev.price === 'Free entry' ? ' free' : '');
+      document.getElementById('eventModalOverlay').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeModal() {
+      document.getElementById('eventModalOverlay').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+  </script>
+</body>
+</html>
