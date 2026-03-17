@@ -314,6 +314,19 @@
     .modal-ticket-btn.free { background: #1a7a3c; border-color: #1a7a3c; }
     .modal-share-btn { width: 50px; height: 50px; border-radius: 0; border: 1px solid var(--rule); background: var(--bg); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s; }
     .modal-share-btn:hover { background: var(--rule); }
+
+    /* ─── PRECISE LOCATION BTN ─────────────────────────── */
+    .precise-loc-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: none; border: 1px solid var(--rule); border-radius: 0;
+      padding: 6px 12px; cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .precise-loc-btn:hover { border-color: var(--ink); }
+    .precise-loc-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .precise-loc-btn:active { opacity: 0.7; }
+    .precise-loc-btn:hover .loc-city { transform: translateY(-100%); opacity: 0; }
+    .precise-loc-btn:hover .loc-time { transform: translateY(0); opacity: 1; }
   </style>
 </head>
 <body>
@@ -327,7 +340,7 @@
 
   <!-- NAV -->
   <nav class="main-nav">
-    <span class="nav-logo">SPOTD</span>
+    <a href="/" class="nav-logo">SPOTD</a>
     <ul class="nav-tabs">
       <li><a href="#" class="active" data-tab="events">Events</a></li>
       <li><a href="#" data-tab="map">Map</a></li>
@@ -355,6 +368,16 @@
             <span class="loc-time" id="locTimeText">00:00 AEDT</span>
           </div>
         </div>
+        <button class="precise-loc-btn" id="preciseLocBtn" title="Use precise location">
+          <div class="location-pulse">
+            <span class="location-pulse-ring"></span>
+            <span class="location-pulse-dot"></span>
+          </div>
+          <div class="location-text-wrap">
+            <span class="loc-city" id="preciseCityText">Melbourne, AU</span>
+            <span class="loc-time" id="preciseTimeText">00:00 AEDT</span>
+          </div>
+        </button>
         <span class="hero-event-count" id="heroBadgeText">8 events · Melbourne</span>
       </div>
 
@@ -786,25 +809,86 @@
       'Birmingham': { tz: 'Europe/London',       abbr: 'GMT',  label: 'Birmingham, UK'},
       'New York':   { tz: 'America/New_York',    abbr: 'EST',  label: 'New York, US'  },
     };
+    const KNOWN_CITIES = Object.keys(locData);
+    const LS_KEY = 'spotd_city';
     let locCity = 'Melbourne';
+
+    function setCity(city, save) {
+      const matched = KNOWN_CITIES.find(c => c.toLowerCase() === (city || '').toLowerCase()) || 'Melbourne';
+      locCity = matched;
+      const sel = document.getElementById('citySelect');
+      if (sel.value !== matched) sel.value = matched;
+      updateLocTag();
+      updateHeroBadge();
+      if (save) localStorage.setItem(LS_KEY, matched);
+    }
+
     function updateLocTag() {
       const d = locData[locCity] || locData['Melbourne'];
       const t = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: d.tz });
       document.getElementById('locCityText').textContent = d.label;
       document.getElementById('locTimeText').textContent = t + ' ' + d.abbr;
+      document.getElementById('preciseCityText').textContent = d.label;
+      document.getElementById('preciseTimeText').textContent = t + ' ' + d.abbr;
     }
-    updateLocTag();
-    setInterval(updateLocTag, 1000);
-    document.getElementById('citySelect').addEventListener('change', e => {
-      locCity = e.target.value || 'Melbourne';
-      updateLocTag();
-      updateHeroBadge();
-    });
+
     function updateHeroBadge() {
       const city = document.getElementById('citySelect').value || 'Melbourne';
       const count = document.getElementById('resultsCount').textContent.split(' ')[0] || '8';
       document.getElementById('heroBadgeText').textContent = count + ' events · ' + city;
     }
+
+    // ─── Auto-detect on load ───────────────────────────────
+    (function initLocation() {
+      // 1. If saved preference exists, use it immediately — skip detection
+      const saved = localStorage.getItem(LS_KEY);
+      if (saved && KNOWN_CITIES.includes(saved)) {
+        setCity(saved, false);
+        updateLocTag();
+        setInterval(updateLocTag, 1000);
+        return;
+      }
+
+      // 2. IP geolocation — silent, no permission needed
+      fetch('https://ipinfo.io/json')
+        .then(r => r.json())
+        .then(data => {
+          const ipCity = (data.city || '').trim();
+          setCity(ipCity, true);   // falls back to Melbourne if not matched
+        })
+        .catch(() => {
+          setCity('Melbourne', false);  // network failure — use default silently
+        });
+
+      updateLocTag();
+      setInterval(updateLocTag, 1000);
+    })();
+
+    // ─── City select manual change ─────────────────────────
+    document.getElementById('citySelect').addEventListener('change', e => {
+      setCity(e.target.value || 'Melbourne', true);
+    });
+
+    // ─── Precise location button ───────────────────────────
+    document.getElementById('preciseLocBtn').addEventListener('click', function() {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        function(pos) {
+          // Reverse-geocode with a free API — no key needed
+          fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + pos.coords.latitude + '&lon=' + pos.coords.longitude)
+            .then(r => r.json())
+            .then(data => {
+              const gpsCity = (data.address && (data.address.city || data.address.town || data.address.village)) || '';
+              setCity(gpsCity, true);   // falls back to Melbourne if not in our list
+            })
+            .catch(() => { /* keep current IP-detected city silently */ });
+        },
+        function() {
+          // User denied or error — keep whatever IP detection set, silently
+        },
+        { timeout: 8000 }
+      );
+    });
 
     // ─── Data ─────────────────────────────────────────────
     const events = [
